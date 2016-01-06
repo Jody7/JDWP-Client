@@ -1,13 +1,12 @@
 public class B {
 
+    //DEBUGEE
+
     static int aNumber = 0;
 
-    public void B(){
-        aNumber = aNumber + 1;
-    }
-
     public void inc(){
-        aNumber = aNumber + 1;
+        aNumber = aNumber + aNumber * 3 + 1;
+        if(aNumber > 100000) aNumber = 1;
         System.out.println(aNumber);
     }
 
