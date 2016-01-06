@@ -2,10 +2,11 @@ import com.sun.jdi.*;
 import com.sun.jdi.event.*;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.EventQueue;
+import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequestManager;
 import com.sun.jdi.request.ModificationWatchpointRequest;
-
+import com.sun.jdi.Location;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -13,6 +14,11 @@ import java.awt.*;
 import java.util.List;
 
 
+/*
+Supported Variable Watch: Field Variables + Local Variables (stack memory)
+
+Creates a nice GUI for users.
+ */
 
 public class MainMon {
     static ThreadReference main;
@@ -25,9 +31,11 @@ public class MainMon {
         JFrame frame = new JFrame("Debug Variables");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+
         JTable table = new JTable(model);
         model.addColumn("Variable");
         model.addColumn("Value");
+        model.addColumn("Type");
 
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -59,6 +67,16 @@ public class MainMon {
                 //load only classes that are by us
                 ReferenceType refType = refer;
 
+                //do some of our fun stuff
+                //very chaotic.. breakpoint every single line, and then we can examine ALL LINES!
+                EventRequestManager erm = vm.eventRequestManager();
+                for(Location loc : refType.allLineLocations()){
+                    BreakpointRequest br = erm.createBreakpointRequest(loc);
+                    br.setEnabled(true);
+
+                }
+
+
 
 
                 //go through our classes, add a field hook to it
@@ -76,7 +94,9 @@ public class MainMon {
         System.out.println("description="+vm.description());
 
 
-        EventRequestManager erm = vm.eventRequestManager();
+
+
+
         //extra watchpoints!
 
 
@@ -117,10 +137,31 @@ public class MainMon {
 
 
     }
+    public static void addToTable(String name, String value, String type){
+        boolean rrrr = false;
+        int colAt = 0;
+
+        for(int i=0; i<model.getRowCount(); i++){
+            if(model.getValueAt(i, 0) == name){
+
+                rrrr = true;
+                colAt = i;
+                break;
+            }
+        }
+
+        if(rrrr){
+            model.setValueAt(value,colAt, 1);
+        }else{
+            model.addRow(new Object[]{name, value, type});
+        }
+    }
+
+
     public static void listenForData(VirtualMachine vm) throws Exception {
         EventQueue eventQueue = vm.eventQueue();
         while (true) {
-            displayCallStack();
+            //displayCallStack();
 
             EventSet eventSet = eventQueue.remove();
 
@@ -131,39 +172,34 @@ public class MainMon {
                     if(ev instanceof BreakpointEvent){
                         BreakpointEvent breakpointEvt = (BreakpointEvent) ev;
                         StackFrame stackFrame = breakpointEvt.thread().frame(0);
-                        LocalVariable localVar = stackFrame.visibleVariableByName("localthing");
-                        Value val = stackFrame.getValue(localVar);
-                        System.out.println("VARIABLE ON STACK: " + val);
+                        for(LocalVariable localVar : stackFrame.visibleVariables()) {
+                            Value val = null;
+                            try {
+                                val = stackFrame.getValue(localVar);
+                                addToTable(localVar.name(), val.toString(), localVar.typeName());
 
+                            } catch (Exception e) {
+                                System.out.println(ev);
+                                //e.printStackTrace();
+                                //sweep it under the rug....
+                            }
+                            System.out.println("VARIABLE ON STACK: " + val);
+
+                        }
 
                     }
 
                     if(ev instanceof ModificationWatchpointEvent){
                         //THERE IS MOVEMENT!!!!
 
-
-
                         ModificationWatchpointEvent me = (ModificationWatchpointEvent) ev;
-                        boolean rrrr = false;
-                        int colAt = 0;
 
-                        for(int i=0; i<model.getRowCount(); i++){
-                            if(model.getValueAt(i, 0) == me.field().name()){
-                                rrrr = true;
-                                colAt = i;
-                                break;
-                            }
-                        }
-
-                        if(rrrr){
-                            model.setValueAt(me.valueToBe(),colAt, 1);
-                        }else{
-                            model.addRow(new Object[]{me.field().name(), me.valueToBe()});
-                        }
+                       addToTable(me.field().name(), me.valueToBe().toString(), me.field().typeName());
 
                         System.out.println(me);
                         System.out.println("Variable: " + me.field().name());
                         System.out.println("Value: " + me.valueToBe());
+
                         System.out.println();
 
 
