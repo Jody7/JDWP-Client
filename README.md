@@ -5,3 +5,4 @@ Just playing around with the JDI and JDWP. Currently it creates a GUI tracking F
 local variables on the Stack! Debugger has a shotgun approach, break point ALL executable lines, and analyze EVERYTHING!
 Also prints to console the Call Stack...
 
+![alt tag](http://i.imgur.com/dNiQyMb.png)
